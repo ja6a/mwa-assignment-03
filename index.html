@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html xmlns='http://www.w3.org/1999/xhtml' lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Assignment 3 part 2</title>
+<meta name="viewport" content="width=device-width" />
+<style type="text/css">
+body {
+	font-family: arial, cursive;
+	background: beige;
+}
+
+h1 {
+	color: #aaa;
+	text-shadow: 2px 2px brown;
+	display: inline-block;
+}
+
+.show {
+	opacity: 1;
+	font-size: 1.4em;
+	transition: font-size .25s, opacity .25s, transform .25s;
+	transform: skew(0deg, 0deg);
+}
+
+.entries {
+	cursor: pointer;
+}
+
+.entries div+p {
+	background: rgb(245, 245, 200);
+	border-radius: 4px;
+	border: solid brown 1px;
+	box-shadow: 1px 1px 2px 0px;
+	padding: 2px;
+}
+
+.hide {
+	opacity: 0;
+	font-size: 0em;
+	transition: font-size .25s, opacity .25s, transform .25s;
+	transform: skew(25deg, -25deg);
+}
+
+.entries h2 {
+	cursor: pointer;
+	text-shadow: 2px 2px #bbb;
+	display: inline-block;
+}
+
+.createStyle:target {
+	display: block;
+}
+
+.mainStyle {
+	display: none;
+}
+
+.mainStyle:target {
+	display: block;
+}
+
+.mainStyle:target p {
+	/* 	display: none; */
+	
+}
+
+.createStyle {
+	display: none;
+}
+
+label {
+	display: inline-block;
+	width: 100px;
+}
+
+.row {
+	padding: 5px;
+}
+
+a:visted {
+	text-decoration: none;
+	color: red;
+}
+
+a:hover {
+	text-decoration: underline;
+	color: red;
+}
+
+a {
+	text-decoration: none;
+	color: red;
+	margin: 5px 5px;
+}
+
+input {
+	border-radius: 4px;
+}
+
+textarea {
+	border-radius: 4px;
+}
+
+.error {
+	color: red;
+}
+
+.remove {
+	display: none;
+}
+</style>
+
+</head>
+<body>
+	<div id="main" class="mainStyle">
+		<div>
+			<h1>My Diary Entries</h1>
+			<a href="#create" onclick="newForm();">Add</a>
+		</div>
+		<section class='entries' id="entries"></section>
+	</div>
+	<div id="create" class="createStyle">
+		<div>
+			<h1></h1>
+			<a href="javascript:void(0);" onclick="onCreateButtonClick(this);">Create</a>
+			<a href="javascript:void(0);">Update</a> <a href="#main">Cancel</a>
+		</div>
+		<form id="form">
+			<div class="row" id="rowError">
+				<label class="error">Validation error</label> <span id="error"
+					class="error"></span>
+			</div>
+			<div class="row">
+				<label for="subject">Subject</label> <input type="text" id="subject" />
+			</div>
+			<div class="row">
+				<label for="body">Body</label>
+				<textarea id="body" cols="40" rows="10"></textarea>
+			</div>
+			<div class="row">
+				<label>Latitude</label> <input type="text" id="latitude" readOnly />
+			</div>
+			<div class="row">
+				<label>Longitude</label> <input type="text" id="longitude" readOnly />
+			</div>
+		</form>
+	</div>
+</body>
+<script src='jquery.min.js'></script>
+<!-- <script src='jquery.mobile.min.js'></script> -->
+<script src="modernizr.js"></script>
+<script type="text/javascript">
+	var key = "entries";
+
+	var indices = [];
+
+	$(document).ready(function() {
+		loadEntries();  
+    var entryElements = $("#entries");
+		entryElements.find('article').find('div').next('p').addClass("hide");
+		entryElements.undelegate("click").delegate('article', 'click',
+				function() {
+					onArticleClick(this);
+				});
+		main();
+		return false;
+	});
+
+	function main(newArticle) {
+		window.location.hash = "#main";
+		if (newArticle != null) {      
+       $(newArticle).click(new function(){onArticleClick(this);});
+       // Add the class so #onArticleClick works as expected.   
+       $(newArticle).find('div').next('p').addClass("hide");
+			onArticleClick(newArticle);
+      newArticle.scrollIntoView();
+		}
+		return false;
+	}
+
+	function onArticleClick(article) {
+		var p = $(article).find('div').next('p');
+		var a = $(article).find('div').find('a');
+		if (p.hasClass("hide")) {
+			p.removeClass("hide");
+			p.addClass("show");
+			a.removeClass("remove");
+		} else {
+			p.removeClass("show");
+			p.addClass("hide");
+			a.addClass("remove");
+		}
+		return false;
+	}
+
+	function onCreateButtonClick(el) {
+		var subject = document.getElementById("subject");
+		var body = document.getElementById("body");
+
+		var date = new Date();
+		var latitude = document.getElementById("latitude");
+		var longitude = document.getElementById("longitude");
+		try {
+			if (subject.value.trim().isEmpty()) {
+				throw new UserException("subject");
+			}
+			if (body.value.trim().isEmpty()) {
+				throw new UserException("body");
+			}
+			var article = addArticle(subject.value, body.value, date,
+					latitude.value, longitude.value, date); 
+                                                                       
+			saveToLocalStorage(subject.value, body.value, date, latitude.value,
+					longitude.value);
+
+			main(article);
+		} catch (e) {
+			document.getElementById("rowError").style.display = "block";
+			document.getElementById("error").innerText = "Please enter text in the "
+					+ e.message + " field.";
+		}
+		return false;
+	}
+
+	function onEditButtonClick(article) {
+
+		var subject = document.getElementById("subject");
+		var body = document.getElementById("body");
+
+		// update the new parts.
+		var h2 = $(article).find('div').find('h2');
+		var p = $(article).find('div').next('p');
+		var sUpdate = $(article).find('div').next("p").next('div').find("span")
+				.get(3);
+		var date = new Date();
+
+		$(h2).text(subject.value);
+		$(p).text(body.value);
+		$(sUpdate).text(" Update: " + date);
+
+		var entries = document.getElementById("entries");
+
+		var index = getArticleIndex(entries.childNodes, article);
+
+		var timeStamp = indices[index];
+
+		updateLocalStorage(subject.value, body.value, date, timeStamp);
+
+		main(article);
+	}
+
+	function onRemoveButtonClick(article) {
+		var entries = document.getElementById("entries");
+
+		var index = getArticleIndex(entries.childNodes, article);
+
+		entries.removeChild(article);
+		var timeStamp = indices[index];
+
+		removeFromStorage(timeStamp);
+
+		return false;
+	}
+
+	function createArticle(subject, body, date, latitude, longitude, update) {
+		var article = document.createElement("article");
+		var divHeader = document.createElement("div");
+		var aEdit = document.createElement("a");
+		var aRemove = document.createElement("a");
+		var h2 = document.createElement("h2");
+		var pBody = document.createElement("p");
+		var divFooter = document.createElement("div");
+		var sDate = document.createElement("span");
+		var sLatitude = document.createElement("span");
+		var sLongitude = document.createElement("span");
+		var sUpdate = document.createElement("span");
+		$(aEdit).click(function(event) {
+			editForm(article);
+		});
+		$(aEdit).attr("href", "#create");
+		$(aEdit).text("Edit");
+		$(aEdit).addClass("remove");
+		$(aRemove).attr("href", "javascript:void(0);");
+		$(aRemove).text("Remove");
+		$(aRemove).addClass("remove");
+		$(h2).text( subject);
+		$(pBody).text(body);
+		$(sDate).text("Create :" + date);
+		$(sLatitude).text(latitude);
+		$(sLongitude).text (longitude);
+		$(sUpdate).text(" Update :" + update);
+
+		divHeader.appendChild(h2);
+		divHeader.appendChild(aEdit);
+		divHeader.appendChild(aRemove);
+		article.appendChild(divHeader);
+		article.appendChild(pBody);
+		divFooter.appendChild(sDate);
+		divFooter.appendChild(sLatitude);
+		divFooter.appendChild(sLongitude);
+		divFooter.appendChild(sUpdate);
+		article.appendChild(divFooter);
+
+		indices.push(date.toJSON());
+
+		aRemove.onclick = function() {
+			onRemoveButtonClick(article)
+		}
+
+		return article;
+	}
+
+	function addArticle(subject, body, date, latitude, longitude, update) {
+		var article = createArticle(subject, body, date, latitude, longitude,
+				update);
+		var entries = document.getElementById("entries");
+		entries.appendChild(article);
+		return article;
+	}
+
+	function newForm() {
+		document.getElementById("form").reset();
+		document.getElementById("rowError").style.display = "none";
+		var h1 = $("#create").find("div").find("h1");
+		h1.text("New Diary Entry");
+		var aCreate = h1.next("a");
+		aCreate.removeClass("remove");
+		aCreate.next("a").addClass("remove");
+		acquireLocation();
+		return false;
+	}
+
+	function editForm(article) {
+		document.getElementById("form").reset();
+		document.getElementById("rowError").style.display = "none";
+		var h1 = $("#create").find("div").find("h1");
+		h1.text("Edit Diary Entry");
+		var aCreate = h1.next("a");
+		aCreate.addClass("remove");
+		var aUpdate = aCreate.next("a");
+		aUpdate.removeClass("remove");
+		var subject = document.getElementById("subject");
+		var body = document.getElementById("body");
+		var latitude = document.getElementById("latitude");
+		var longitude = document.getElementById("longitude");
+
+		var h2 = $(article).find('div').find('h2');
+		var p = $(article).find('div').next('p');
+		var sLat = $(article).find('div').next("p").next('div').find("span")
+				.get(1);
+		var sLong = $(article).find('div').next("p").next('div').find("span")
+				.get(2);
+
+		subject.value = $(h2).text();
+		body.value = $(p).text();
+		latitude.value = $(sLat).text();
+		longitude.value = $(sLong).text();
+
+		$(aUpdate).off("click").click(function() {
+			onEditButtonClick(article);
+		});
+
+		return false;
+	}
+
+	// save entry to local storage.
+	function saveToLocalStorage(subjectText, bodyText, date, latitude,
+			longitude) {
+		if (!Modernizr.localstorage) {
+			return false;
+		}
+
+		var savedEntries = localStorage.getItem(key);
+		var entries = JSON.parse(savedEntries);
+		var article = JSON.stringify({
+			subject : subjectText,
+			body : bodyText,
+			timeStamp : date.toJSON(),
+			latitude : latitude,
+			longitude : longitude,
+			update : date.toJSON()
+		});
+		entries.articles.push(article);
+		localStorage.setItem(key, JSON.stringify(entries));
+
+		return false;
+	}
+
+	function updateLocalStorage(subjectText, bodyText, update, timeStamp) {
+		if (!Modernizr.localstorage) {
+			return false;
+		}
+
+		var savedEntries = localStorage.getItem(key);
+		var entries = JSON.parse(savedEntries);
+
+		var articles = entries.articles;
+
+		var article2Update = null;
+
+		for ( var article in articles) {
+			var json = JSON.parse(articles[article]);
+			if (Date.parse(timeStamp) == Date.parse(json.timeStamp)) {
+				// update it
+				article2Update = article;
+				break;
+			}
+		}
+		if (article2Update != null) {
+			var json = JSON.parse(articles[article2Update]);
+			json.subject = subjectText;
+			json.body = bodyText;
+			json.update = update.toJSON();
+			articles[article2Update] = JSON.stringify(json);
+			localStorage.setItem(key, JSON.stringify(entries));
+		}
+
+		return false;
+	}
+
+	function removeFromStorage(timeStamp) {
+		if (!Modernizr.localstorage) {
+			return false;
+		}
+		// remove from store
+		var savedEntries = localStorage.getItem(key);
+		var entries = JSON.parse(savedEntries);
+
+		var articles = entries.articles;
+
+		var article2Remove = null;
+
+		for ( var article in articles) {
+			var json = JSON.parse(articles[article]);
+			if (Date.parse(timeStamp) == Date.parse(json.timeStamp)) {
+				// remove it
+				article2Remove = article;
+				break;
+			}
+		}
+		if (article2Remove != null) {
+			articles.pop(article2Remove);
+			indices.pop(timeStamp);
+			localStorage.setItem(key, JSON.stringify(entries));
+		}
+
+		return false;
+	}
+
+	function acquireLocation() {
+		if (navigator.geolocation) {
+			navigator.geolocation
+					.getCurrentPosition(
+							function(pos) {
+								// 	                  $("#status").text("OK");
+								document.getElementById("latitude").value = pos.coords.latitude;
+								document.getElementById("longitude").value = pos.coords.longitude;
+								// 	                  $("#altitude").text(pos.coords.altitude);
+								// 	                  $("#accuracy").text(pos.coords.accuracy);
+								// 	                  $("#heading").text(pos.coords.heading);
+								// 	                  $("#speed").text(pos.coords.speed);
+							}, function(err) {
+								$("#status").text("ERROR: " + err.message);
+							})
+		} else {
+			$("#status").text("Geolocation is not supported in this browser");
+		}
+		return false;
+	}
+
+	function loadEntries() {
+		// read entries from local storage
+		var entries = loadEntriesFromLocalStorage();
+
+		var articles = entries.articles;
+
+		for ( var article in articles) {
+			var json = JSON.parse(articles[article]);
+			var date = new Date(json.timeStamp);
+			var latitude = json.latitude;
+			var longitude = json.longitude;
+			var update = new Date(json.update);
+			addArticle(json.subject, json.body, date, latitude, longitude,
+					update);
+		}
+
+		return false;
+	}
+
+	function loadEntriesFromLocalStorage() {
+		if (!Modernizr.localstorage) {
+			return false;
+		}
+		var savedEntries = localStorage.getItem(key);
+		var entries = null;
+		if (savedEntries == null) {
+			entries = createKey();
+		} else {
+			try {
+				entries = JSON.parse(savedEntries);
+			} catch (e) {
+				// unexpected - lets clean up so next time it will work.
+				localStorage.removeItem(savedEntries);
+				entries = createKey();
+			}
+		}
+		return entries;
+	}
+
+	function createKey() {
+		var entries = {
+			articles : []
+		};
+		localStorage.setItem(key, JSON.stringify(entries));
+		return entries;
+	}
+
+	function getArticleIndex(childNodes, article) {
+		var index = -1;
+		for (var i = 0; i < childNodes.length; i++) {
+			if (childNodes[i] === article) {
+				index = i;
+				break;
+			}
+		}
+		return index;
+	}
+
+	String.prototype.isEmpty = function() {
+		if (!this.match(/\S/)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	function UserException(message) {
+		this.message = message;
+		this.name = "UserException";
+		return false;
+
+	}
+</script>
+
+</html>
